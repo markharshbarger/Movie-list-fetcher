@@ -1,54 +1,12 @@
-import os
-import logging
-import ffmpeg
-from movie import Movie
+import random
+import time
+from movie_manager import Movie
+from movie_manager import MovieManager
 import gspread
 from google.oauth2.service_account import Credentials
-import time
-import random
 
-# Path to the directories where the movies are stored
-movie_directory = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
-
-# Configure logging
-logging.basicConfig(filename='app.log', level=logging.ERROR)
-
-def get_video_resolution(file_path):
-    probe = ffmpeg.probe(file_path)
-    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
-    if video_stream is None:
-        logging.error(f"No video stream found in {file_path}")
-        raise ValueError("No video stream found in {file_path}")
-    resoulution = f"{video_stream['width']}x{video_stream['height']}"
-    return resoulution
-
-def expontial_backoff(retries):
-    maximum_backoff = 64
-    wait_time = 2 ** retries + random.uniform(0, 1)
-    print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
-    time.sleep(min(wait_time, maximum_backoff))
-
-
-movie_list = []
-subtitle_list = []
-
-for directory in movie_directory:
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".mp4") or file.endswith(".mkv"):
-                resolution = get_video_resolution(os.path.join(root, file))
-                file = file.replace(".mp4", "").replace(".mkv", "")
-                movie_list.append(Movie(file, resolution))
-            elif file.endswith(".srt"):
-                file = file.replace(".srt", "").replace(".en", "").replace(".default", "")
-                subtitle_list.append(file)
-            else:
-                logging.error(f"File {file} is not recognized")
-
-for subtitle in subtitle_list:
-    for movie in movie_list:
-        if subtitle in movie.name:
-            movie.external_subtitles = True
+# edit the movie_directories to match the directories where your movies are stored
+movie_directories = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
 
 scopes = [
     "https://www.googleapis.com/auth/spreadsheets"
@@ -65,7 +23,11 @@ worksheet_list = map(lambda x: x.title, workbook.worksheets())
 # edit the new_worksheet_name to match the desired name of worksheet
 new_worksheet_name = "Movies"
 min_col = "A"
-max_col = "C"
+max_col = MovieManager.number_to_alphabet(Movie.length_of_parameters)
+
+manager = MovieManager(movie_directories)
+manager.process_files()
+movie_list = manager.movie_list
 
 
 if new_worksheet_name in worksheet_list:
@@ -87,6 +49,12 @@ existing_movies_list = sheet.get_all_values()[1:]
 existing_movies = []
 for movie in existing_movies_list:
     existing_movies.append(Movie(movie[0], movie[1], movie[2] == "x"))
+
+def expontial_backoff(retries):
+    maximum_backoff = 64
+    wait_time = 2 ** retries + random.uniform(0, 1)
+    print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
+    time.sleep(min(wait_time, maximum_backoff))
 
 for movie in movie_list:
     movie_exists = False
