@@ -1,6 +1,9 @@
 import os
 import logging
 import ffmpeg
+from movie import Movie
+import gspread
+from google.oauth2.service_account import Credentials
 
 # Path to the directories where the movies are stored
 movie_directory = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
@@ -14,19 +17,81 @@ def get_video_resolution(file_path):
     if video_stream is None:
         logging.error(f"No video stream found in {file_path}")
         raise ValueError("No video stream found in {file_path}")
-    width = video_stream['width']
-    height = video_stream['height']
-    return width, height
+    resoulution = f"{video_stream['width']}x{video_stream['height']}"
+    return resoulution
+
+movie_list = []
+subtitle_list = []
 
 for directory in movie_directory:
     for root, dirs, files in os.walk(directory):
         for file in files:
             if file.endswith(".mp4") or file.endswith(".mkv"):
-                print(file)
-                width, height = get_video_resolution(os.path.join(root, file))
-                print(f"Resolution: {width}x{height}")
+                resolution = get_video_resolution(os.path.join(root, file))
+                file = file.replace(".mp4", "").replace(".mkv", "")
+                movie_list.append(Movie(file, resolution))
             elif file.endswith(".srt"):
-                print(file)
+                file = file.replace(".srt", "").replace(".en", "").replace(".default", "")
+                subtitle_list.append(file)
             else:
                 logging.error(f"File {file} is not recognized")
+
+for subtitle in subtitle_list:
+    for movie in movie_list:
+        if subtitle in movie.name:
+            movie.external_subtitles = True
+
+scopes = [
+    "https://www.googleapis.com/auth/spreadsheets"
+]
+creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+client = gspread.authorize(creds)
+
+# edit the sheet_id to match the ID of your Google Sheet (can be found in the URL)
+sheet_id = "1zBxVHWQSeGAmai0tudG_OFNShOw1JQkZX4qIyhv6yoE"
+workbook = client.open_by_key(sheet_id)
+
+worksheet_list = map(lambda x: x.title, workbook.worksheets())
+
+# edit the new_worksheet_name to match the desired name of worksheet
+new_worksheet_name = "Movies"
+
+if new_worksheet_name in worksheet_list:
+    sheet = workbook.worksheet(new_worksheet_name)
+else:
+    workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols="3")
+    movie_format = Movie("Name", "Resolution", "External Subtitles")
+    sheet = workbook.worksheet(new_worksheet_name)
+    sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
+    sheet.format("A1:C1", {
+        "horizontalAlignment": "CENTER",
+        "textFormat": {
+            "fontSize": 12,
+            "bold": True
+        }
+    })
+
+existing_movies_list = sheet.get_all_values()[1:]
+existing_movies = []
+for movie in existing_movies_list:
+    existing_movies.append(Movie(movie[0], movie[1], movie[2] == "x"))
+
+for movie in movie_list:
+    movie_exists = False
+    for existing_movie in existing_movies:
+        if movie == existing_movie:
+            movie_exists = True
+            print(f"{movie.name} is already in the list and does not need to be updated")
+            break
+        elif movie.name == existing_movie.name:
+            print(f"Updating {movie.name} in the list")
+            row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
+            sheet.update_cell(row_index, 2, movie.resolution)
+            sheet.update_cell(row_index, 3, "x" if movie.external_subtitles else "")
+            movie_exists = True
+            break
+    if not movie_exists:
+        sheet.append_row(movie.list())
+        print(f"Added {movie.name} to the list")
+
 
