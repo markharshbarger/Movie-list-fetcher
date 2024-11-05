@@ -99,6 +99,7 @@ for movie in movie_list:
             n = 0
             while True:
                 try:
+                    n += 1
                     row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
                     range = min_col + str(row_index) + ":" + max_col + str(row_index)
                     sheet.update(range_name = range, values = [movie.list()])
