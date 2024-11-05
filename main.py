@@ -115,18 +115,3 @@ for movie in movie_list:
                     expontial_backoff(n)
                 else:
                     raise
-                
-# for movie in existing_movies:
-#     n = 0
-#     while True:
-#         try:
-#             print(f"Tried to add {movie.name}") 
-#             n += 1
-#             sheet.append_row(movie.list())
-#             print(f"Added {movie.name} to the list")
-#             break
-#         except gspread.exceptions.APIError as e:
-#             if e.response.status_code == 429:
-#                 expontial_backoff(n)
-#             else:
-#                 raise
