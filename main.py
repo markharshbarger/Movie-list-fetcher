@@ -64,7 +64,8 @@ worksheet_list = map(lambda x: x.title, workbook.worksheets())
 
 # edit the new_worksheet_name to match the desired name of worksheet
 new_worksheet_name = "Movies"
-range_of_rows = "A1:C1"
+min_col = "A"
+max_col = "C"
 
 
 if new_worksheet_name in worksheet_list:
@@ -74,7 +75,7 @@ else:
     movie_format = Movie("Name", "Resolution", "External Subtitles")
     sheet = workbook.worksheet(new_worksheet_name)
     sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
-    sheet.format(range_of_rows, {
+    sheet.format(min_col + "1:" + max_col + "1", {
         "horizontalAlignment": "CENTER",
         "textFormat": {
             "fontSize": 12,
