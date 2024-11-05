@@ -33,7 +33,7 @@ movie_list = manager.movie_list
 if new_worksheet_name in worksheet_list:
     sheet = workbook.worksheet(new_worksheet_name)
 else:
-    workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols="3")
+    workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols=Movie.length_of_parameters)
     movie_format = Movie("Name", "Resolution", "External Subtitles")
     sheet = workbook.worksheet(new_worksheet_name)
     sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
