@@ -57,5 +57,5 @@ class MovieManager:
                 if subtitle in movie.name:
                     movie.external_subtitles = True
 
-    def NumberToAlphabet(number):
+    def number_to_alphabet(number):
         return chr(number + 64)
