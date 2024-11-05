@@ -4,6 +4,8 @@ import ffmpeg
 from movie import Movie
 import gspread
 from google.oauth2.service_account import Credentials
+import time
+import random
 
 # Path to the directories where the movies are stored
 movie_directory = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
@@ -19,6 +21,13 @@ def get_video_resolution(file_path):
         raise ValueError("No video stream found in {file_path}")
     resoulution = f"{video_stream['width']}x{video_stream['height']}"
     return resoulution
+
+def expontial_backoff(retries):
+    maximum_backoff = 64
+    wait_time = 2 ** retries + random.uniform(0, 1)
+    print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
+    time.sleep(min(wait_time, maximum_backoff))
+
 
 movie_list = []
 subtitle_list = []
@@ -55,6 +64,8 @@ worksheet_list = map(lambda x: x.title, workbook.worksheets())
 
 # edit the new_worksheet_name to match the desired name of worksheet
 new_worksheet_name = "Movies"
+range_of_rows = "A1:C1"
+
 
 if new_worksheet_name in worksheet_list:
     sheet = workbook.worksheet(new_worksheet_name)
@@ -63,7 +74,7 @@ else:
     movie_format = Movie("Name", "Resolution", "External Subtitles")
     sheet = workbook.worksheet(new_worksheet_name)
     sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
-    sheet.format("A1:C1", {
+    sheet.format(range_of_rows, {
         "horizontalAlignment": "CENTER",
         "textFormat": {
             "fontSize": 12,
@@ -90,8 +101,32 @@ for movie in movie_list:
             sheet.update_cell(row_index, 3, "x" if movie.external_subtitles else "")
             movie_exists = True
             break
+        break
     if not movie_exists:
-        sheet.append_row(movie.list())
-        print(f"Added {movie.name} to the list")
-
-
+        n = 0
+        while True:
+            try:
+                n += 1
+                sheet.append_row(movie.list())
+                print(f"Added {movie.name} to the list")
+                break
+            except gspread.exceptions.APIError as e:
+                if e.response.status_code == 429:
+                    expontial_backoff(n)
+                else:
+                    raise
+                
+# for movie in existing_movies:
+#     n = 0
+#     while True:
+#         try:
+#             print(f"Tried to add {movie.name}") 
+#             n += 1
+#             sheet.append_row(movie.list())
+#             print(f"Added {movie.name} to the list")
+#             break
+#         except gspread.exceptions.APIError as e:
+#             if e.response.status_code == 429:
+#                 expontial_backoff(n)
+#             else:
+#                 raise
