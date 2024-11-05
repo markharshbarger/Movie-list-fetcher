@@ -96,11 +96,20 @@ for movie in movie_list:
             print(f"{movie.name} is already in the list and does not need to be updated")
             break
         elif movie.name == existing_movie.name:
-            print(f"Updating {movie.name} in the list")
-            row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
-            range = min_col + str(row_index) + ":" + max_col + str(row_index)
-            sheet.update(range_name = range, values = [movie.list()])
-            movie_exists = True
+            n = 0
+            while True:
+                try:
+                    row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
+                    range = min_col + str(row_index) + ":" + max_col + str(row_index)
+                    sheet.update(range_name = range, values = [movie.list()])
+                    print(f"Updating {movie.name} in the list")
+                    movie_exists = True
+                    break
+                except gspread.exceptions.APIError as e:
+                    if e.response.status_code == 429:
+                        expontial_backoff(n)
+                    else:
+                        raise
             break
     if not movie_exists:
         n = 0
