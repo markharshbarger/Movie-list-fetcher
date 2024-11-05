@@ -98,8 +98,8 @@ for movie in movie_list:
         elif movie.name == existing_movie.name:
             print(f"Updating {movie.name} in the list")
             row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
-            sheet.update_cell(row_index, 2, movie.resolution)
-            sheet.update_cell(row_index, 3, "x" if movie.external_subtitles else "")
+            range = min_col + str(row_index) + ":" + max_col + str(row_index)
+            sheet.update(range_name = range, values = [movie.list()])
             movie_exists = True
             break
     if not movie_exists:
