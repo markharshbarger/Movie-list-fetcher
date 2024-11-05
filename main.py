@@ -4,6 +4,8 @@ import ffmpeg
 from movie import Movie
 import gspread
 from google.oauth2.service_account import Credentials
+import time
+import random
 
 # Path to the directories where the movies are stored
 movie_directory = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
@@ -19,6 +21,13 @@ def get_video_resolution(file_path):
         raise ValueError("No video stream found in {file_path}")
     resoulution = f"{video_stream['width']}x{video_stream['height']}"
     return resoulution
+
+def expontial_backoff(retries):
+    maximum_backoff = 64
+    wait_time = 2 ** retries + random.uniform(0, 1)
+    print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
+    time.sleep(min(wait_time, maximum_backoff))
+
 
 movie_list = []
 subtitle_list = []
@@ -55,6 +64,9 @@ worksheet_list = map(lambda x: x.title, workbook.worksheets())
 
 # edit the new_worksheet_name to match the desired name of worksheet
 new_worksheet_name = "Movies"
+min_col = "A"
+max_col = "C"
+
 
 if new_worksheet_name in worksheet_list:
     sheet = workbook.worksheet(new_worksheet_name)
@@ -63,7 +75,7 @@ else:
     movie_format = Movie("Name", "Resolution", "External Subtitles")
     sheet = workbook.worksheet(new_worksheet_name)
     sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
-    sheet.format("A1:C1", {
+    sheet.format(min_col + "1:" + max_col + "1", {
         "horizontalAlignment": "CENTER",
         "textFormat": {
             "fontSize": 12,
@@ -84,14 +96,31 @@ for movie in movie_list:
             print(f"{movie.name} is already in the list and does not need to be updated")
             break
         elif movie.name == existing_movie.name:
-            print(f"Updating {movie.name} in the list")
-            row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
-            sheet.update_cell(row_index, 2, movie.resolution)
-            sheet.update_cell(row_index, 3, "x" if movie.external_subtitles else "")
-            movie_exists = True
+            n = 0
+            while True:
+                try:
+                    row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
+                    range = min_col + str(row_index) + ":" + max_col + str(row_index)
+                    sheet.update(range_name = range, values = [movie.list()])
+                    print(f"Updating {movie.name} in the list")
+                    movie_exists = True
+                    break
+                except gspread.exceptions.APIError as e:
+                    if e.response.status_code == 429:
+                        expontial_backoff(n)
+                    else:
+                        raise
             break
     if not movie_exists:
-        sheet.append_row(movie.list())
-        print(f"Added {movie.name} to the list")
-
-
+        n = 0
+        while True:
+            try:
+                n += 1
+                sheet.append_row(movie.list())
+                print(f"Added {movie.name} to the list")
+                break
+            except gspread.exceptions.APIError as e:
+                if e.response.status_code == 429:
+                    expontial_backoff(n)
+                else:
+                    raise
