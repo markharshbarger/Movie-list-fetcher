@@ -101,7 +101,6 @@ for movie in movie_list:
             sheet.update_cell(row_index, 3, "x" if movie.external_subtitles else "")
             movie_exists = True
             break
-        break
     if not movie_exists:
         n = 0
         while True:
