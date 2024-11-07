@@ -30,6 +30,9 @@ class MovieManager:
         self.movie_list = []
         self.subtitle_list = []
 
+    def get_movie_list(self):
+        return self.movie_list
+    
     def get_video_resolution(self, file_path):
         probe = ffmpeg.probe(file_path)
         video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
@@ -56,6 +59,3 @@ class MovieManager:
             for movie in self.movie_list:
                 if subtitle in movie.name:
                     movie.external_subtitles = True
-
-    def number_to_alphabet(number):
-        return chr(number + 64)
