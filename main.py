@@ -27,17 +27,17 @@ max_col = chr(Movie.length_of_parameters + 64)
 
 manager = MovieManager(movie_directories)
 manager.process_files()
-movie_list = manager.movie_list
+local_movies = manager.get_movie_list()
 
 
 if new_worksheet_name in worksheet_list:
-    sheet = workbook.worksheet(new_worksheet_name)
+    work_sheet = workbook.worksheet(new_worksheet_name)
 else:
     workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols=Movie.length_of_parameters)
     movie_format = Movie("Name", "Resolution", "External Subtitles")
-    sheet = workbook.worksheet(new_worksheet_name)
-    sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
-    sheet.format(min_col + "1:" + max_col + "1", {
+    work_sheet = workbook.worksheet(new_worksheet_name)
+    work_sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
+    work_sheet.format(min_col + "1:" + max_col + "1", {
         "horizontalAlignment": "CENTER",
         "textFormat": {
             "fontSize": 12,
@@ -45,10 +45,10 @@ else:
         }
     })
 
-existing_movies_list = sheet.get_all_values()[1:]
-existing_movies = []
-for movie in existing_movies_list:
-    existing_movies.append(Movie(movie[0], movie[1], movie[2] == "x"))
+work_sheet_data = work_sheet.get_all_values()[1:]
+work_sheet_movies = []
+for movie in work_sheet_data:
+    work_sheet_movies.append(Movie(movie[0], movie[1], movie[2] == "x"))
 
 def expontial_backoff(retries):
     maximum_backoff = 64
@@ -56,21 +56,23 @@ def expontial_backoff(retries):
     print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
     time.sleep(min(wait_time, maximum_backoff))
 
-for movie in movie_list:
+for movie in local_movies:
     movie_exists = False
-    for existing_movie in existing_movies:
+    for existing_movie in work_sheet_movies:
+        # all parameters of movies are the same
         if movie == existing_movie:
             movie_exists = True
             print(f"{movie.name} is already in the list and does not need to be updated")
             break
+        # only the name of the movie is the same
         elif movie.name == existing_movie.name:
             n = 0
             while True:
                 try:
                     n += 1
-                    row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
+                    row_index = work_sheet_data.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
                     range = min_col + str(row_index) + ":" + max_col + str(row_index)
-                    sheet.update(range_name = range, values = [movie.list()])
+                    work_sheet.update(range_name = range, values = [movie.list()])
                     print(f"Updating {movie.name} in the list")
                     movie_exists = True
                     break
@@ -85,7 +87,7 @@ for movie in movie_list:
         while True:
             try:
                 n += 1
-                sheet.append_row(movie.list())
+                work_sheet.append_row(movie.list())
                 print(f"Added {movie.name} to the list")
                 break
             except gspread.exceptions.APIError as e:
