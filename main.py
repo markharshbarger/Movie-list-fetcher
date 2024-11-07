@@ -56,6 +56,8 @@ def expontial_backoff(retries):
     print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
     time.sleep(min(wait_time, maximum_backoff))
 
+new_movies = []
+
 for movie in local_movies:
     movie_exists = False
     for existing_movie in work_sheet_movies:
@@ -69,12 +71,12 @@ for movie in local_movies:
             n = 0
             while True:
                 try:
+                    movie_exists = True
                     n += 1
-                    row_index = work_sheet_data.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
+                    row_index = work_sheet_data.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2 # count header
                     range = min_col + str(row_index) + ":" + max_col + str(row_index)
                     work_sheet.update(range_name = range, values = [movie.list()])
                     print(f"Updating {movie.name} in the list")
-                    movie_exists = True
                     break
                 except gspread.exceptions.APIError as e:
                     if e.response.status_code == 429:
@@ -83,15 +85,19 @@ for movie in local_movies:
                         raise
             break
     if not movie_exists:
-        n = 0
-        while True:
-            try:
-                n += 1
-                work_sheet.append_row(movie.list())
-                print(f"Added {movie.name} to the list")
-                break
-            except gspread.exceptions.APIError as e:
-                if e.response.status_code == 429:
-                    expontial_backoff(n)
-                else:
-                    raise
+        new_movies.append(movie.list())
+
+n = 0
+while True:
+    try:
+        n += 1
+        next_cell = len(work_sheet_movies) + 2 # count the header row
+        range = min_col + str(next_cell) + ":" + max_col + str(next_cell + len(new_movies))
+        work_sheet.update(range_name=range, values=new_movies)
+        print(f"Added new moves to the sheet")
+        break
+    except gspread.exceptions.APIError as e:
+        if e.response.status_code == 429:
+            expontial_backoff(n)
+        else:
+            raise
