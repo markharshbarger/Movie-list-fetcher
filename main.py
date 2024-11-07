@@ -1,54 +1,12 @@
-import os
-import logging
-import ffmpeg
-from movie import Movie
+import random
+import time
+from movie_manager import Movie
+from movie_manager import MovieManager
 import gspread
 from google.oauth2.service_account import Credentials
-import time
-import random
 
-# Path to the directories where the movies are stored
-movie_directory = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
-
-# Configure logging
-logging.basicConfig(filename='app.log', level=logging.ERROR)
-
-def get_video_resolution(file_path):
-    probe = ffmpeg.probe(file_path)
-    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
-    if video_stream is None:
-        logging.error(f"No video stream found in {file_path}")
-        raise ValueError("No video stream found in {file_path}")
-    resoulution = f"{video_stream['width']}x{video_stream['height']}"
-    return resoulution
-
-def expontial_backoff(retries):
-    maximum_backoff = 64
-    wait_time = 2 ** retries + random.uniform(0, 1)
-    print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
-    time.sleep(min(wait_time, maximum_backoff))
-
-
-movie_list = []
-subtitle_list = []
-
-for directory in movie_directory:
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".mp4") or file.endswith(".mkv"):
-                resolution = get_video_resolution(os.path.join(root, file))
-                file = file.replace(".mp4", "").replace(".mkv", "")
-                movie_list.append(Movie(file, resolution))
-            elif file.endswith(".srt"):
-                file = file.replace(".srt", "").replace(".en", "").replace(".default", "")
-                subtitle_list.append(file)
-            else:
-                logging.error(f"File {file} is not recognized")
-
-for subtitle in subtitle_list:
-    for movie in movie_list:
-        if subtitle in movie.name:
-            movie.external_subtitles = True
+# edit the movie_directories to match the directories where your movies are stored
+movie_directories = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
 
 scopes = [
     "https://www.googleapis.com/auth/spreadsheets"
@@ -65,17 +23,21 @@ worksheet_list = map(lambda x: x.title, workbook.worksheets())
 # edit the new_worksheet_name to match the desired name of worksheet
 new_worksheet_name = "Movies"
 min_col = "A"
-max_col = "C"
+max_col = chr(Movie.length_of_parameters + 64)
+
+manager = MovieManager(movie_directories)
+manager.process_files()
+local_movies = manager.get_movie_list()
 
 
 if new_worksheet_name in worksheet_list:
-    sheet = workbook.worksheet(new_worksheet_name)
+    work_sheet = workbook.worksheet(new_worksheet_name)
 else:
-    workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols="3")
+    workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols=Movie.length_of_parameters)
     movie_format = Movie("Name", "Resolution", "External Subtitles")
-    sheet = workbook.worksheet(new_worksheet_name)
-    sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
-    sheet.format(min_col + "1:" + max_col + "1", {
+    work_sheet = workbook.worksheet(new_worksheet_name)
+    work_sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
+    work_sheet.format(min_col + "1:" + max_col + "1", {
         "horizontalAlignment": "CENTER",
         "textFormat": {
             "fontSize": 12,
@@ -83,28 +45,38 @@ else:
         }
     })
 
-existing_movies_list = sheet.get_all_values()[1:]
-existing_movies = []
-for movie in existing_movies_list:
-    existing_movies.append(Movie(movie[0], movie[1], movie[2] == "x"))
+work_sheet_data = work_sheet.get_all_values()[1:]
+work_sheet_movies = []
+for movie in work_sheet_data:
+    work_sheet_movies.append(Movie(movie[0], movie[1], movie[2] == "x"))
 
-for movie in movie_list:
+def expontial_backoff(retries):
+    maximum_backoff = 64
+    wait_time = 2 ** retries + random.uniform(0, 1)
+    print(f"Waiting for {min(wait_time, maximum_backoff)} seconds")
+    time.sleep(min(wait_time, maximum_backoff))
+
+new_movies = []
+
+for movie in local_movies:
     movie_exists = False
-    for existing_movie in existing_movies:
+    for existing_movie in work_sheet_movies:
+        # all parameters of movies are the same
         if movie == existing_movie:
             movie_exists = True
             print(f"{movie.name} is already in the list and does not need to be updated")
             break
+        # only the name of the movie is the same
         elif movie.name == existing_movie.name:
             n = 0
             while True:
                 try:
-                    n += 1
-                    row_index = existing_movies_list.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2
-                    range = min_col + str(row_index) + ":" + max_col + str(row_index)
-                    sheet.update(range_name = range, values = [movie.list()])
-                    print(f"Updating {movie.name} in the list")
                     movie_exists = True
+                    n += 1
+                    row_index = work_sheet_data.index([existing_movie.name, existing_movie.resolution, "x" if existing_movie.external_subtitles else ""]) + 2 # count header
+                    range = min_col + str(row_index) + ":" + max_col + str(row_index)
+                    work_sheet.update(range_name = range, values = [movie.list()])
+                    print(f"Updating {movie.name} in the list")
                     break
                 except gspread.exceptions.APIError as e:
                     if e.response.status_code == 429:
@@ -113,15 +85,19 @@ for movie in movie_list:
                         raise
             break
     if not movie_exists:
-        n = 0
-        while True:
-            try:
-                n += 1
-                sheet.append_row(movie.list())
-                print(f"Added {movie.name} to the list")
-                break
-            except gspread.exceptions.APIError as e:
-                if e.response.status_code == 429:
-                    expontial_backoff(n)
-                else:
-                    raise
+        new_movies.append(movie.list())
+
+n = 0
+while True:
+    try:
+        n += 1
+        next_cell = len(work_sheet_movies) + 2 # count the header row
+        range = min_col + str(next_cell) + ":" + max_col + str(next_cell + len(new_movies))
+        work_sheet.update(range_name=range, values=new_movies)
+        print(f"Added new moves to the sheet")
+        break
+    except gspread.exceptions.APIError as e:
+        if e.response.status_code == 429:
+            expontial_backoff(n)
+        else:
+            raise
