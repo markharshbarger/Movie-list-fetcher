@@ -23,7 +23,7 @@ worksheet_list = map(lambda x: x.title, workbook.worksheets())
 # edit the new_worksheet_name to match the desired name of worksheet
 new_worksheet_name = "Movies"
 min_col = "A"
-max_col = MovieManager.number_to_alphabet(Movie.length_of_parameters)
+max_col = chr(Movie.length_of_parameters + 64)
 
 manager = MovieManager(movie_directories)
 manager.process_files()
