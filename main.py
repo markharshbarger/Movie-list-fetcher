@@ -4,38 +4,38 @@ from movie_manager import Movie
 from movie_manager import MovieManager
 import gspread
 from google.oauth2.service_account import Credentials
+from configparser import ConfigParser
 
-# edit the movie_directories to match the directories where your movies are stored
-movie_directories = ["../../../git/movie-dir-1/", "../../../git/movie-dir-2/"]
+config = ConfigParser()
+config.read('config.ini')
+paths = list(config['Paths'].values())
+worksheet_id = config['API']['worksheet_id']
+worksheet_name = config['API']['worksheet_name']
 
 scopes = [
     "https://www.googleapis.com/auth/spreadsheets"
 ]
 creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
 client = gspread.authorize(creds)
-
-# edit the sheet_id to match the ID of your Google Sheet (can be found in the URL)
-sheet_id = "1zBxVHWQSeGAmai0tudG_OFNShOw1JQkZX4qIyhv6yoE"
-workbook = client.open_by_key(sheet_id)
-
+workbook = client.open_by_key(worksheet_id)
 worksheet_list = map(lambda x: x.title, workbook.worksheets())
 
-# edit the new_worksheet_name to match the desired name of worksheet
-new_worksheet_name = "Movies"
+# edit the worksheet_name to match the desired name of worksheet
+worksheet_name = "Movies"
 min_col = "A"
 max_col = chr(Movie.length_of_parameters + 64)
 
-manager = MovieManager(movie_directories)
+manager = MovieManager(paths)
 manager.process_files()
 local_movies = manager.get_movie_list()
 
 
-if new_worksheet_name in worksheet_list:
-    work_sheet = workbook.worksheet(new_worksheet_name)
+if worksheet_name in worksheet_list:
+    work_sheet = workbook.worksheet(worksheet_name)
 else:
-    workbook.add_worksheet(title=new_worksheet_name, rows="1000", cols=Movie.length_of_parameters)
+    workbook.add_worksheet(title=worksheet_name, rows="1000", cols=Movie.length_of_parameters)
     movie_format = Movie("Name", "Resolution", "External Subtitles")
-    work_sheet = workbook.worksheet(new_worksheet_name)
+    work_sheet = workbook.worksheet(worksheet_name)
     work_sheet.update([[movie_format.name, movie_format.resolution, "External Subtitles"]])
     work_sheet.format(min_col + "1:" + max_col + "1", {
         "horizontalAlignment": "CENTER",
@@ -87,6 +87,8 @@ for movie in local_movies:
     if not movie_exists:
         new_movies.append(movie.list())
 
+if len(new_movies) == 0:
+    exit()
 n = 0
 while True:
     try:
