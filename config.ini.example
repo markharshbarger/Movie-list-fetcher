@@ -1,0 +1,9 @@
+# rename this file 'config.ini'
+# can include one or more paths to movie directories, name doesn't matter
+[Paths]
+movie_dir1: ../../..//movie-dir-1/
+movie_dir2: ../home/movie-dir-4/
+
+[API]
+worksheet_id: replace with id of worksheet which can be found in url
+worksheet_name: Movies
