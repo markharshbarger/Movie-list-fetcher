@@ -5,5 +5,5 @@ movie_dir1: ../../..//movie-dir-1/
 movie_dir2: ../home/movie-dir-4/
 
 [API]
-worksheet_id: replace with id of worksheet which can be found in url
+worksheet_id: replace with id of worksheet which can be found in URL
 worksheet_name: Movies
