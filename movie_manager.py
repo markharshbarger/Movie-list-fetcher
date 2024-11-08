@@ -1,5 +1,4 @@
 import os
-import logging
 import ffmpeg
 
 class Movie:
@@ -36,9 +35,6 @@ class MovieManager:
     def get_video_resolution(self, file_path):
         probe = ffmpeg.probe(file_path)
         video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
-        if video_stream is None:
-            logging.error(f"No video stream found in {file_path}")
-            raise ValueError("No video stream found in {file_path}")
         resoulution = f"{video_stream['width']}x{video_stream['height']}"
         return resoulution
 
@@ -53,8 +49,6 @@ class MovieManager:
                     elif file.endswith(".srt"):
                         file = file.replace(".srt", "").replace(".en", "").replace(".default", "")
                         self.subtitle_list.append(file)
-                    else:
-                        logging.error(f"File {file} is not recognized")
         for subtitle in self.subtitle_list:
             for movie in self.movie_list:
                 if subtitle in movie.name:
