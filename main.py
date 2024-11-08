@@ -20,8 +20,6 @@ client = gspread.authorize(creds)
 workbook = client.open_by_key(worksheet_id)
 worksheet_list = map(lambda x: x.title, workbook.worksheets())
 
-# edit the worksheet_name to match the desired name of worksheet
-worksheet_name = "Movies"
 min_col = "A"
 max_col = chr(Movie.length_of_parameters + 64)
 
