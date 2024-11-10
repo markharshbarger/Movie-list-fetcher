@@ -1,6 +1,7 @@
 `pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib gspread`
 look into using a virtual environment `python3 -m venv sheets`
 `source sheets/bin/activate`
+'pip install ffmpeg-python'
 
 # Google Sheets API Setup
 1. Look at [Google Sheets API Setup Guide](http://ai2.appinventor.mit.edu/reference/other/googlesheets-api-setup.html)
