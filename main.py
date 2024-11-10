@@ -62,7 +62,6 @@ for movie in local_movies:
         # all parameters of movies are the same
         if movie == existing_movie:
             movie_exists = True
-            print(f"{movie.name} is already in the list and does not need to be updated")
             break
         # only the name of the movie is the same
         elif movie.name == existing_movie.name:
