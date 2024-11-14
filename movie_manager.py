@@ -56,7 +56,7 @@ class MovieManager:
                         file = self.remove_extensions(file, video_extensions)
                         self.movie_list.append(Movie(file, resolution))
                     elif file.endswith(".srt"):
-                        file = self.remove_extensions(file, subtitle_extensions)#file.replace(".srt", "").replace(".en", "").replace(".default", "")
+                        file = self.remove_extensions(file, subtitle_extensions)
                         self.subtitle_list.append(file)
 
         for subtitle in self.subtitle_list:
