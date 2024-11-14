@@ -50,6 +50,8 @@ class MovieManager:
     def process_files(self):
         for directory in self.movie_directories:
             for root, dirs, files in os.walk(directory):
+                if 'extras' in dirs:
+                    dirs.remove('extras')  # Skip directories named 'extras'
                 for file in files:
                     if file.endswith(video_extensions):
                         resolution = self.get_video_resolution(os.path.join(root, file))
